@@ -220,7 +220,7 @@ fulmo.Capture = function(W, CII) {
         dragModeNow = false;
 	setTimeout(function() {
             getScreenShot([r[0] + x, r[1] + y, w, h]);
-	}, 1);
+	}, 100);
         ev.preventDefault();
     }
 
