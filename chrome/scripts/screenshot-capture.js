@@ -218,7 +218,9 @@ fulmo.Capture = function(W, CII) {
         var r = calcWindowRect();
         endDragMode();
         dragModeNow = false;
-        getScreenShot([r[0] + x, r[1] + y, w, h]);
+	setTimeout(function() {
+            getScreenShot([r[0] + x, r[1] + y, w, h]);
+	}, 1);
         ev.preventDefault();
     }
 
