@@ -34,76 +34,95 @@ chrome.extension.onRequest.addListener(
     function(req, sender, sendResponse) {
         var canvas = document.getElementById('cv');
         var ctx = canvas.getContext('2d');
-        do {
-            var result = {};
-            if (!req.command) break;
-            if (req.command == 'getScreen') {
-                chrome.tabs.captureVisibleTab(null, {format: 'png'}, function(url){
-                    var img = new Image();
-                    img.src = url;
-                    img.onload = function() {
-                        canvas.width = 400;
-                        ctx.drawImage(img, 0, 0);
-                        window.open(canvas.toDataURL());
-                        result = {url: url};
-                    };
-                });
-            } else if (req.command == 'putDocumentPart') {
-                chrome.tabs.captureVisibleTab(null, {format: 'png'}, function(url){
-                    var img = new Image();
-                    img.src = url;
-                    img.onload = function() {
-                        if (req.pos[0] == 0 &&  req.pos[1] == 0) {
-                            ctx.drawImage(img, req.pos[0], req.pos[1]);
+        var result = {};
+	switch (req.command) {
+	case 'getScreen':
+            chrome.tabs.captureVisibleTab(null, {format: 'png'}, function(url){
+                var img = new Image();
+                img.src = url;
+                img.onload = function() {
+                    canvas.width = 400;
+                    ctx.drawImage(img, 0, 0);
+                    window.open(canvas.toDataURL());
+                    result = {url: url};
+                };
+            });
+	    break;
+        case 'putDocumentPart':
+            chrome.tabs.captureVisibleTab(null, {format: 'png'}, function(url){
+                var img = new Image();
+                img.src = url;
+                img.onload = function() {
+                    if (req.pos[0] == 0 &&  req.pos[1] == 0) {
+                        ctx.drawImage(img, req.pos[0], req.pos[1]);
+                    } else {
+                        if (req.pos[0] == 0 &&  req.pos[1] != 0) {
+                            ctx.drawImage(img, 0, req.margin, req.pos[2], req.pos[3] - req.margin, 
+					  req.pos[0], req.pos[1] + req.margin, req.pos[2], req.pos[3] - req.margin);
+                        } else if (req.pos[0] != 0 &&  req.pos[1] == 0) {
+                            ctx.drawImage(img, req.margin, 0, req.pos[2] - req.margin, req.pos[3], 
+					  req.pos[0] + req.margin, req.pos[1], req.pos[2] - req.margin, req.pos[3]);
                         } else {
-                            if (req.pos[0] == 0 &&  req.pos[1] != 0) {
-                                ctx.drawImage(img, 0, req.margin, req.pos[2], req.pos[3] - req.margin, 
-                                    req.pos[0], req.pos[1] + req.margin, req.pos[2], req.pos[3] - req.margin);
-                            } else if (req.pos[0] != 0 &&  req.pos[1] == 0) {
-                                ctx.drawImage(img, req.margin, 0, req.pos[2] - req.margin, req.pos[3], 
-                                    req.pos[0] + req.margin, req.pos[1], req.pos[2] - req.margin, req.pos[3]);
-                            } else {
-                                ctx.drawImage(img, req.margin, req.margin, req.pos[2] - req.margin, req.pos[3] - req.margin, 
-                                    req.pos[0] + req.margin, req.pos[1] + req.margin, req.pos[2] - req.margin, req.pos[3] - req.margin);
-                            }
+                            ctx.drawImage(img, req.margin, req.margin, req.pos[2] - req.margin, req.pos[3] - req.margin, 
+					  req.pos[0] + req.margin, req.pos[1] + req.margin, req.pos[2] - req.margin, req.pos[3] - req.margin);
                         }
-                        sendResponse({});
-                    };
-                });
-            } else if (req.command == 'putWindowPart') {
-                chrome.tabs.captureVisibleTab(null, {format: 'png'}, function(url){
-                    var img = new Image();
-                    img.src = url;
-                    img.onload = function() {
-                        ctx.drawImage(img, req.pos[0], req.pos[1], req.pos[2], req.pos[3], 0, 0, req.pos[2], req.pos[3]);
-                        sendResponse({});
-                    };
-                });
-            } else if (req.command == 'setCanvasSize') {
-                canvas.width = req.width;
-                canvas.height = req.height;
-                sendResponse({});
-            } else if (req.command == 'getCanvas') {
-                sendResponse({url: canvas.toDataURL()});
-            } else if (req.command == 'openMainWindow') {
-                fulmo.imageParams = req.params;
-                window.open('main.html', '_blank', 'resizable,centerscreen,scrollbars,width=600,height=800');
-                sendResponse({});
-            } else if (req.command == 'openEditor') {
-                fulmo.imageParams = req.params;
-                chrome.windows.getCurrent(function(w){
-                    window.open('editor.html', '_blank', 'resizable,centerscreen,scrollbars,width=' + w.width + ',height=' + w.height);
+                    }
                     sendResponse({});
-                })
-            } else if (req.command == 'openSettingWindow') {
-                window.open('settings.html');
+                };
+            });
+	    break;
+        case 'putWindowPart':
+            chrome.tabs.captureVisibleTab(null, {format: 'png'}, function(url){
+                var img = new Image();
+                img.src = url;
+                img.onload = function() {
+                    ctx.drawImage(img, req.pos[0], req.pos[1], req.pos[2], req.pos[3], 0, 0, req.pos[2], req.pos[3]);
+                    sendResponse({});
+                };
+            });
+	    break;
+        case 'setCanvasSize':
+            canvas.width = req.width;
+            canvas.height = req.height;
+            sendResponse({});
+	    break;
+        case 'getCanvas':
+            sendResponse({url: canvas.toDataURL()});
+	    break;
+        case 'openMainWindow':
+            fulmo.imageParams = req.params;
+            window.open('main.html', '_blank', 'resizable,centerscreen,scrollbars,width=600,height=800');
+            sendResponse({});
+	    break;
+        case 'openEditor':
+            fulmo.imageParams = req.params;
+            chrome.windows.getCurrent(function(w){
+                window.open('editor.html', '_blank', 'resizable,centerscreen,scrollbars,width=' + w.width + ',height=' + w.height);
                 sendResponse({});
-            } else if (req.command == 'loadSetting') {
-                sendResponse({data:JSON.stringify(fulmo.settingsManager.load())});
-            } else if (req.command == 'setupContextMenu') {
-                setupContextMenu(req.params);
-            }
-        } while (0);
+            })
+	    break;
+        case 'openSettingWindow':
+            window.open('settings.html');
+            sendResponse({});
+	    break;
+        case 'loadSetting':
+            sendResponse({data:JSON.stringify(fulmo.settingsManager.load())});
+	    break;
+        case 'setupContextMenu':
+            setupContextMenu(req.params);
+	    break;
+	case 'documentCapture':
+	case 'windowCapture':
+        case 'selectArea':
+	    chrome.tabs.getSelected(null, function(tab) {
+		chrome.tabs.sendRequest(tab.id, {command: req.command}, function(response) {
+		    if (chrome.runtime.lastError != null) {
+			alert(chrome.i18n.getMessage("fulmo_cannot_capture_from_this_page"));
+		    }
+		});
+	    });
+	    break;
+	}
     }
 );
 

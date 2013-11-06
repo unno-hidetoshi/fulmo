@@ -31,27 +31,18 @@ window.addEventListener('load', function(ev){
         $(this).text(chrome.i18n.getMessage($(this).text()));
     });
     document.getElementById('send-all-document-button').addEventListener('click', function(ev) {
-        chrome.tabs.getSelected(null, function(tab) {
-            window.close();
-            chrome.tabs.sendRequest(tab.id, {command: "documentCapture"}, function(response) {
-            });
-        });
+        window.close();
+        chrome.extension.sendRequest({command: "documentCapture"}, function(response) {});
         ev.preventDefault();
     }, false);
     document.getElementById('send-inner-window-button').addEventListener('click', function(ev) {
-        chrome.tabs.getSelected(null, function(tab) {
-            window.close();
-            chrome.tabs.sendRequest(tab.id, {command: "windowCapture"}, function(response) {
-            });
-        });
+        window.close();
+        chrome.extension.sendRequest({command: "windowCapture"}, function(response) {});
         ev.preventDefault();
     }, false);
     document.getElementById('send-selected-field-button').addEventListener('click', function(ev) {
-        chrome.tabs.getSelected(null, function(tab) {
-            window.close();
-            chrome.tabs.sendRequest(tab.id, {command: "selectArea"}, function(response) {
-            });
-        });
+        window.close();
+        chrome.extension.sendRequest({command: "selectArea"}, function(response) {});
         ev.preventDefault();
     }, false);
     document.getElementById('send-without-image-button').addEventListener('click', function(ev) {

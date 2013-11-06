@@ -454,6 +454,11 @@
       "ja": "進捗 %",
       "he": "Done ratio",
       "en": "Done ratio"
+    },
+    "fulmo_cannot_capture_from_this_page": {
+	"ja": "このページからはキャプチャできません。",
+	"he": "לא יכול לקחת צילום מסך של חלון זה.",
+	"en": "Cannot take a screenshot of this window."
     }
   }
 }
