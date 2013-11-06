@@ -63,8 +63,22 @@ driver.prototype = {
             }
             client.send('', function() {
                 if (client.status == 200) {
-                    if (params[index][1] !== null) params[index][1](index);
-                    index++;
+		    var action = (function() {
+			if (params[index][1] !== null) return params[index][1](index);
+		    })();
+		    switch (action) {
+		    case 'repeat':
+			//
+			// 処理関数の戻り値が'repeat'の場合には同じステップのリクエストを再度実行します。
+			//
+			break;
+		    default:
+			//
+			// 次のステップに進みます。
+			//
+			index++;
+			break;
+		    }
                     if (index < params.length) {
                         _openOne();
                     } else {
@@ -197,40 +211,56 @@ driver.prototype = {
         var urlParams = [
             [
                 // プロジェクトl情報取得
-                baseUrl + 'projects.xml?limit=100',function(index) {
-                    var arr = client.responseXML.getElementsByTagName('project');
-                    tmp = [];
-                    for (var i = 0; i < arr.length; i++) {
-                        var tmpId = arr[i].getElementsByTagName('id')[0].textContent;
-                        var tmpIdentifier = arr[i].getElementsByTagName('identifier')[0].textContent;
-                        var is_default;
-                        if (!projectId) {
-                            is_default = tmpIdentifier == projectIdentifier;
-                        } else {
-                            is_default = tmpId == projectId;
-                        }
-                        tmp.push({
-                            id: tmpId,
-                            name: arr[i].getElementsByTagName('name')[0].textContent,
-                            is_default: is_default
-                        });
-                        if (is_default) {
-                            projectId = tmpId;
-                            projectUrl = baseUrl + 'projects/' + tmpIdentifier + '/';
-                        }
-                    }
-                    params1.push(
-                        {
-                            label: p.formatString('fulmo_redmine_label_project',[]),
-                            name: 'project_id',
-                            format: 'list',
-                            items: tmp,
-                            is_required: true,
-                            reload: true
-                        }
-                    );
-                    urlParams[1][0] = projectUrl + 'trackers.xml';
-                }
+                baseUrl + 'projects.xml?limit=100',(function() {
+		    var total_count;
+		    var projects = [];
+		    var default_project;
+		    return function(index) {
+			if (total_count == null) total_count = parseInt(client.responseXML.getElementsByTagName("projects")[0].getAttribute("total_count"), 10);
+			var arr = client.responseXML.getElementsByTagName('project');
+			for (var i = 0 ; i < arr.length ; i++) {
+			    var e = arr[i];
+			    var id = e.getElementsByTagName('id')[0].textContent;
+			    var identifier = e.getElementsByTagName('identifier')[0].textContent;
+			    var is_default = default_project == null && (projectId ? id == projectId : identifier == projectIdentifier);
+			    var project = {
+				id: id,
+				identifier: identifier,
+				name: e.getElementsByTagName('name')[0].textContent,
+				is_default: is_default
+			    };
+			    if (is_default) {
+				default_project = project;
+			    }
+			    projects.push(project);
+			}
+
+			if (projects.length < total_count) {
+			    //
+			    // 未取得のプロジェクトがある場合はoffsetを設定して再度projects.xmlをリクエストします。
+			    //
+			    urlParams[index][0] = baseUrl + 'projects.xml?limit=100&offset=' + projects.length;
+			    return 'repeat';
+			} else {
+			    //
+			    // 全てのプロジェクト情報を取得したらparams1に格納して次のステップに進みます。
+			    //
+			    params1.push({
+				label: p.formatString('fulmo_redmine_label_project',[]),
+				name: 'project_id',
+				format: 'list',
+				items: projects,
+				is_required: true,
+				reload: true
+                            });
+			    if (default_project != null) {
+				projectId = default_project.id;
+				projectUrl = baseUrl + 'projects/' + default_project.identifier + '/';
+			    }
+			    urlParams[index + 1][0] = projectUrl + 'trackers.xml';
+			}
+		    };
+		})()
             ],
             [
                 // トラッカー情報取得
@@ -406,68 +436,76 @@ driver.prototype = {
         var baseUrl = tmp.join('/') + '/';
         var params = {};
 
+	var urlParams = [
+            [
+                // カテゴリ取得
+                projectUrl + 'issue_categories.xml',function(index) {
+                    var arr = client.responseXML.getElementsByTagName('issue_category');
+                    params.categories = [];
+                    for (var i = 0; i < arr.length; i++) {
+                        params.categories.push({
+                            id: arr[i].getElementsByTagName('id')[0].textContent, 
+                            name: arr[i].getElementsByTagName('name')[0].textContent
+                        });
+                    }
+                }
+            ],
+            [
+                // ステータス取得
+                baseUrl + 'issue_statuses.xml',function(index) {
+                    var arr = client.responseXML.getElementsByTagName('issue_status');
+                    params.statuses = [];
+                    for (var i = 0; i < arr.length; i++) {
+                        var id = arr[i].getElementsByTagName('id')[0].textContent;
+                        var name = arr[i].getElementsByTagName('name')[0].textContent;
+                        params.statuses.push({
+                            id: arr[i].getElementsByTagName('id')[0].textContent, 
+                            name: arr[i].getElementsByTagName('name')[0].textContent,
+                            is_default: arr[i].getElementsByTagName('is_default')[0].textContent == 'true',
+                            is_closes: arr[i].getElementsByTagName('is_closed')[0].textContent == 'true'
+                        });
+                    }
+                }
+            ],
+            [
+                // トラッカー取得
+                baseUrl + 'trackers.xml',function(index) {
+                    var arr = client.responseXML.getElementsByTagName('tracker');
+                    params.trackers = [];
+                    for (var i = 0; i < arr.length; i++) {
+                        params.trackers.push({
+                            id: arr[i].getElementsByTagName('id')[0].textContent, 
+                            name: arr[i].getElementsByTagName('name')[0].textContent,
+                        });
+                    }
+                }
+            ],
+            [
+                // プロジェクト取得
+                baseUrl + 'projects.xml?limit=100',function(index) {
+		    var total_count = parseInt(client.responseXML.getElementsByTagName("projects")[0].getAttribute("total_count"), 10);
+                    var arr = client.responseXML.getElementsByTagName('project');
+                    if (params.projects == null) params.projects = [];
+                    for (var i = 0; i < arr.length; i++) {
+                        params.projects.push({
+                            id: arr[i].getElementsByTagName('id')[0].textContent,
+                            name: arr[i].getElementsByTagName('name')[0].textContent,
+                            is_default: projectIdentifier == arr[i].getElementsByTagName('identifier')[0].textContent,
+                        });
+                    }
+		    if (params.projects.length < total_count) {
+			//
+			// 未取得のプロジェクトがある場合はoffsetを設定して再度projects.xmlをリクエストします。
+			//
+			urlParams[index][0] = baseUrl + 'projects.xml?limit=100&offset=' + params.projects.length;
+			return 'repeat';
+		    }
+                }
+            ]
+        ];
         this._openChain(
             client,
-            [
-                [
-                    // カテゴリ取得
-                    projectUrl + 'issue_categories.xml',function(index) {
-                        var arr = client.responseXML.getElementsByTagName('issue_category');
-                        params.categories = [];
-                        for (var i = 0; i < arr.length; i++) {
-                            params.categories.push({
-                                    id: arr[i].getElementsByTagName('id')[0].textContent, 
-                                    name: arr[i].getElementsByTagName('name')[0].textContent
-                            });
-                        }
-                    }
-                ],
-                [
-                    // ステータス取得
-                    baseUrl + 'issue_statuses.xml',function(index) {
-                        var arr = client.responseXML.getElementsByTagName('issue_status');
-                        params.statuses = [];
-                        for (var i = 0; i < arr.length; i++) {
-                            var id = arr[i].getElementsByTagName('id')[0].textContent;
-                            var name = arr[i].getElementsByTagName('name')[0].textContent;
-                            params.statuses.push({
-                                    id: arr[i].getElementsByTagName('id')[0].textContent, 
-                                    name: arr[i].getElementsByTagName('name')[0].textContent,
-                                    is_default: arr[i].getElementsByTagName('is_default')[0].textContent == 'true',
-                                    is_closes: arr[i].getElementsByTagName('is_closed')[0].textContent == 'true'
-                            });
-                        }
-                    }
-                ],
-                [
-                    // トラッカー取得
-                    baseUrl + 'trackers.xml',function(index) {
-                        var arr = client.responseXML.getElementsByTagName('tracker');
-                        params.trackers = [];
-                        for (var i = 0; i < arr.length; i++) {
-                            params.trackers.push({
-                                    id: arr[i].getElementsByTagName('id')[0].textContent, 
-                                    name: arr[i].getElementsByTagName('name')[0].textContent,
-                            });
-                        }
-                    }
-                ],
-                [
-                    // プロジェクト取得
-                    baseUrl + 'projects.xml?limit=100',function(index) {
-                        var arr = client.responseXML.getElementsByTagName('project');
-                        params.projects = [];
-                        for (var i = 0; i < arr.length; i++) {
-                            params.projects.push({
-                                id: arr[i].getElementsByTagName('id')[0].textContent,
-                                name: arr[i].getElementsByTagName('name')[0].textContent,
-                                is_default: projectIdentifier == arr[i].getElementsByTagName('identifier')[0].textContent,
-                            });
-                        }
-
-                    }
-                ]
-            ], 
+	    urlParams,
             p.account, 
             function() { // success
                 var projectId = 1;
